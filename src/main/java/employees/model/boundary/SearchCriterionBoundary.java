@@ -15,7 +15,6 @@ public class SearchCriterionBoundary {
         this.size = size;
     }
 
-    // Getters & Setters
     public String getSearchCriteria() { return searchCriteria; }
     public void setSearchCriteria(String searchCriteria) { this.searchCriteria = searchCriteria; }
 

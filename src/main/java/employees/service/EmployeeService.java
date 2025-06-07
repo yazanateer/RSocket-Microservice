@@ -1,12 +1,19 @@
 package employees.service;
 
+import employees.model.Birthdate;
 import employees.model.Employee;
+import employees.util.EmployeeConverter;
 import employees.model.boundary.EmployeeBoundary;
+import employees.model.boundary.SearchCriterionBoundary;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import employees.repository.EmployeeRepository;
+import static employees.util.EmployeeUtils.*;
+
+
 
 @Service
 public class EmployeeService {
@@ -18,7 +25,6 @@ public class EmployeeService {
     }
 
     public Mono<EmployeeBoundary> create(EmployeeBoundary boundary, String rawPassword) {
-        // Validate input
         if (boundary == null ||
                 !isValidEmail(boundary.getEmail()) ||
                 isBlank(boundary.getName()) ||
@@ -27,27 +33,21 @@ public class EmployeeService {
                 boundary.getRoles() == null || boundary.getRoles().isEmpty()) {
             return Mono.error(new IllegalArgumentException("Invalid employee input"));
         }
-        // Create the employee object ahead of time
         Employee employee = new Employee(
                 boundary.getEmail(),
                 boundary.getName(),
-                rawPassword, // Storing as-is for this exercise
+                rawPassword,
                 boundary.getBirthdate(),
                 boundary.getRoles()
         );
-        // Save only if not exists - FIXED VERSION
+        // Save only if not exists
         return employeeRepo.findById(boundary.getEmail())
                 .<EmployeeBoundary>flatMap(existing ->
                         Mono.error(new IllegalArgumentException("Employee already exists")))
                 .switchIfEmpty(
                         employeeRepo.save(employee)
-                                .map(saved -> new EmployeeBoundary(
-                                        saved.getEmail(),
-                                        saved.getName(),
-                                        saved.getPassword(),
-                                        saved.getBirthdate(),
-                                        saved.getRoles()
-                                ))
+                                .map(EmployeeConverter::toBoundary)
+
                 );
     }
 
@@ -69,40 +69,58 @@ public class EmployeeService {
                 .map(emp -> new EmployeeBoundary(
                         emp.getEmail(),
                         emp.getName(),
-                        null, // No password
+                        null,
                         emp.getBirthdate(),
                         emp.getRoles()
                 ));
     }
 
-    public Mono<Void> deleteAll() {
-        return employeeRepo.deleteAll(); // Reactive MongoDB deletes all documents
+    public Mono<Void> cleanup() {
+        return employeeRepo.deleteAll();
+    }
+
+    public Flux<EmployeeBoundary> findByCriterion(SearchCriterionBoundary criterion) {
+        int page = criterion.getPage();
+        int size = criterion.getSize();
+        Pageable pageable = PageRequest.of(page, size);
+
+        String searchType = criterion.getSearchCriteria();
+        String value = criterion.getValue();
+
+        return switch (searchType) {
+            case "byEmailDomain" -> this.employeeRepo
+                    .findAllByEmailEndingWith("@" + value, pageable)
+                    .map(EmployeeConverter::toBoundary);
+
+            case "byRole" -> this.employeeRepo
+                    .findAllByRolesContaining(value, pageable)
+                    .map(EmployeeConverter::toBoundary);
+
+            case "byAge" -> {
+                try {
+                    int targetAge = Integer.parseInt(value);
+                    yield this.employeeRepo
+                            .findAllBy(pageable)
+                            .filter(employee -> {
+                                try {
+                                    int employeeAge = calculateAge(employee.getBirthdate());
+                                    return employeeAge == targetAge;
+                                } catch (Exception e) {
+                                    return false; // Skip invalid birthdates
+                                }
+                            })
+                            .map(EmployeeConverter::toBoundary);
+
+                } catch (NumberFormatException e) {
+                    yield Flux.empty(); // If age is not a number
+                }
+            }
+            default -> Flux.empty(); // Unknown criteria
+        };
     }
 
 
 
-
-
-
-
-
-
-
-    private boolean isBlank(String str) {
-        return str == null || str.trim().isEmpty();
-    }
-
-    private boolean isValidEmail(String email) {
-        return email != null && email.matches("^[\\w-.]+@[\\w-]+(\\.[a-z]{2,})+$");
-    }
-
-    private boolean isValidPassword(String password) {
-        // At least 3 characters, 1 digit, 1 uppercase letter
-        return password != null &&
-                password.length() >= 3 &&
-                password.matches(".*\\d.*") &&
-                password.matches(".*[A-Z].*");
-    }
 
 
 }

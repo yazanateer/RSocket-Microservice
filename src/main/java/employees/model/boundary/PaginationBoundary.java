@@ -11,7 +11,6 @@ public class PaginationBoundary {
         this.size = size;
     }
 
-    // Getters & Setters
     public int getPage() { return page; }
     public void setPage(int page) { this.page = page; }
 

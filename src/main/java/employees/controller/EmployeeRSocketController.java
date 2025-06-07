@@ -3,6 +3,7 @@ package employees.controller;
 import employees.model.boundary.EmployeeBoundary;
 import employees.model.boundary.EmployeeLoginInputBoundary;
 import employees.model.boundary.PaginationBoundary;
+import employees.model.boundary.SearchCriterionBoundary;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.stereotype.Controller;
 import reactor.core.publisher.Flux;
@@ -49,9 +50,16 @@ public class EmployeeRSocketController {
                 });
     }
 
-    @MessageMapping("FireAndForgetCleanup")
-    public Mono<Void> cleanupAllEmployees() {
-        return employeeService.deleteAll(); // Assuming this returns Mono<Void>
+    @MessageMapping("FireAndFotgetCleanup")
+    public Mono<Void> cleanup() {
+        return employeeService.cleanup(); // Delegate to service
     }
+
+    @MessageMapping("ChannelOfEmployeesByCriteria")
+    public Flux<EmployeeBoundary> channelOfEmployeesByCriteria(Flux<SearchCriterionBoundary> criteriaFlux) {
+        return criteriaFlux
+                .flatMap(criterion -> employeeService.findByCriterion(criterion));
+    }
+
 
 }
