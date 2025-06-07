@@ -1,16 +1,12 @@
-package service;
+package employees.service;
 
-import model.Employee;
-import model.boundary.EmployeeBoundary;
-import model.boundary.EmployeeLoginInputBoundary;
+import employees.model.Employee;
+import employees.model.boundary.EmployeeBoundary;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import repository.EmployeeRepository;
-
-import java.util.regex.Pattern;
-
-import static org.bson.types.ObjectId.isValid;
+import employees.repository.EmployeeRepository;
 
 @Service
 public class EmployeeService {
@@ -31,7 +27,6 @@ public class EmployeeService {
                 boundary.getRoles() == null || boundary.getRoles().isEmpty()) {
             return Mono.error(new IllegalArgumentException("Invalid employee input"));
         }
-
         // Create the employee object ahead of time
         Employee employee = new Employee(
                 boundary.getEmail(),
@@ -40,7 +35,6 @@ public class EmployeeService {
                 boundary.getBirthdate(),
                 boundary.getRoles()
         );
-
         // Save only if not exists - FIXED VERSION
         return employeeRepo.findById(boundary.getEmail())
                 .<EmployeeBoundary>flatMap(existing ->
@@ -57,8 +51,33 @@ public class EmployeeService {
                 );
     }
 
+    public Mono<EmployeeBoundary> login(String email, String password) {
+        return employeeRepo.findById(email)
+                .filter(emp -> emp.getPassword().equals(password)) // השוואה פשוטה
+                .map(emp -> new EmployeeBoundary(
+                        emp.getEmail(),
+                        emp.getName(),
+                        null, // לא מחזירים סיסמה
+                        emp.getBirthdate(),
+                        emp.getRoles()
+                ));
+    }
 
+    public Flux<EmployeeBoundary> getAllEmployees(int page, int size) {
+        PageRequest pageable = PageRequest.of(page, size);
+        return employeeRepo.findAllBy(pageable)
+                .map(emp -> new EmployeeBoundary(
+                        emp.getEmail(),
+                        emp.getName(),
+                        null, // No password
+                        emp.getBirthdate(),
+                        emp.getRoles()
+                ));
+    }
 
+    public Mono<Void> deleteAll() {
+        return employeeRepo.deleteAll(); // Reactive MongoDB deletes all documents
+    }
 
 
 
@@ -74,7 +93,7 @@ public class EmployeeService {
     }
 
     private boolean isValidEmail(String email) {
-        return email != null && email.matches("^[\\w-.]+@[\\w-]+\\.[a-z]{2,}$");
+        return email != null && email.matches("^[\\w-.]+@[\\w-]+(\\.[a-z]{2,})+$");
     }
 
     private boolean isValidPassword(String password) {

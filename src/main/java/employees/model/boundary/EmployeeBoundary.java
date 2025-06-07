@@ -1,6 +1,6 @@
-package model.boundary;
+package employees.model.boundary;
 
-import model.Birthdate;
+import employees.model.Birthdate;
 
 import java.util.List;
 

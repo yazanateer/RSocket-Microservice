@@ -1,4 +1,4 @@
-package model.boundary;
+package employees.model.boundary;
 
 public class SearchCriterionBoundary {
     private String searchCriteria;

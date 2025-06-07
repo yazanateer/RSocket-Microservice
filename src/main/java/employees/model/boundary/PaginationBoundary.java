@@ -1,4 +1,4 @@
-package model.boundary;
+package employees.model.boundary;
 
 public class PaginationBoundary {
     private int page = 0;
